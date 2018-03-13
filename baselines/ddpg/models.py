@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow.contrib as tc
+import numpy as np
 
 
 class Model(object):
@@ -18,6 +19,94 @@ class Model(object):
     def perturbable_vars(self):
         return [var for var in self.trainable_vars if 'LayerNorm' not in var.name]
 
+class WeightSharingActor(Model):
+    def __init__(self, specification, name='weight-sharing-actor', layer_norm=True):
+        super(WeightSharingActor, self).__init__(name=name)
+        self.specification = {
+            'commander': {
+                'hidden_layers': 0,
+                'units': 64
+            },
+            'controllers': [
+                {
+                    'name': 'leg',
+                    'hidden_layers': 1,
+                    'units': 64,
+                    'action_indice_groups': [[0, 1], [2, 3], [4, 5], [6, 7]]
+                },
+                #{
+                #    'name': 'weird',
+                #    'hidden_layers': 1,
+                #    'units': 64,
+                #    'action_indice_groups': [[1,2,3], [4,5,6]]
+                #},
+                #{
+                #    'name': 'awkward',
+                #    'hidden_layers': 1,
+                #    'units': 64,
+                #    'action_indice_groups': [[4]]
+                #},
+            ]
+        }
+        self.layer_norm = layer_norm
+        self.indices = []
+        for controller in self.specification['controllers']:
+            controller['output_length'] = len(controller['action_indice_groups'][0])
+            for action_indice_group in controller['action_indice_groups']:
+                assert controller['output_length'] == len(action_indice_group), \
+                    "Controller %r has an action_indice_group length mismatch. All groups should be the same length." % controller
+                self.indices += action_indice_group
+        for i in range(max(self.indices)):
+            assert i in self.indices, \
+                "Action index %r not found." % i
+        self.nb_actions = max(self.indices) + 1
+    
+    def __call__(self, obs):
+        with tf.variable_scope(self.name) as scope:
+            x = obs
+            for i in range(self.specification['commander']['hidden_layers']):
+                x = tf.layers.dense(x, self.specification['commander']['units'])
+                if self.layer_norm:
+                    x = tc.layers.layer_norm(x, center=True, scale=True)
+                x = tf.nn.relu(x)
+
+            output = tf.zeros((None, self.nb_actions))
+
+            for controller in self.specification['controllers']:
+                for action_indice_group in controller['action_indice_groups']:
+
+                    # This layer splits the controllers. Weights can not be shared here.
+                    x_ = tf.layers.dense(x, controller['units'])
+                    if self.layer_norm:
+                        x_ = tc.layers.layer_norm(x_, center=True, scale=True)
+                    x_ = tf.nn.relu(x_)
+
+                    for i in range(controller['action_indice_groups']['hidden_layers']):
+
+                        # controllers hidden layer
+                        x_ = tf.layers.dense(x_, controller['units'],
+                            name=controller['name']+'hidden-layer-'+str(i),
+                            reuse=True)
+                        if self.layer_norm:
+                            x_ = tc.layers.layer_norm(x_, center=True, scale=True)
+                        x_ = tf.nn.relu(x_)
+
+                    #controllers output layer
+                    x_ = tf.layers.dense(x_, controller['output_length'],
+                        kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3),
+                        name=controller['name']+'final-layer',
+                        reuse=True)
+
+                    output_projection = np.zeros((controller['output_length'], self.nb_actions))
+                    for controller_output_index, action_index in enumerate(action_indice_group):
+                        output_projection[controller_output_index, action_index] = 1/self.indices.count(action_index)
+                    output_projection = tf.convert_to_tensor(output_projection)
+
+                    x_ = tf.tensordot(x_, output_projection, axes = 1)
+                    output = tf.add(output, x_)
+
+            output = tf.nn.tanh(output)
+        return output
 
 class Actor(Model):
     def __init__(self, nb_actions, name='actor', layer_norm=True):
