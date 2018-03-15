@@ -62,8 +62,7 @@ class Task(object):
             nb_epoch_cycles=self.nb_epoch_cycles,
             nb_train_steps=self.nb_train_steps,
             nb_rollout_steps=self.nb_rollout_steps,
-            nb_eval_runs=5,
-            nb_eval_steps=0)
+            nb_eval_runs=5)
 
     def get_signature(self): 
         return "{}__timesteps_{}__simsteps_{}__trainsteps_{}__noise_{}__sharing_{}__seed_{}".format(self.env_id, int(self.nb_timesteps), int(self.nb_rollout_steps), int(self.nb_train_steps), self.noise_type, self.weight_sharing, int(self.seed))
