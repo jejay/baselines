@@ -14,7 +14,7 @@ from mpi4py import MPI
 
 def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, param_noise, actor, critic,
     normalize_returns, normalize_observations, critic_l2_reg, actor_lr, critic_lr, action_noise,
-    popart, gamma, clip_norm, nb_train_steps, nb_rollout_steps, nb_eval_steps, batch_size, memory,
+    popart, gamma, clip_norm, nb_train_steps, nb_rollout_steps, nb_eval_runs, batch_size, memory,
     tau=0.01, eval_env=None, param_noise_adaption_interval=50):
     rank = MPI.COMM_WORLD.Get_rank()
 
@@ -118,16 +118,17 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
             eval_episode_reward = 0.
             eval_qs = []
             if eval_env is not None:
-                eval_done = False
-                eval_obs = eval_env.reset()
-                while not eval_done:
-                    eval_action, eval_q = agent.pi(eval_obs, apply_noise=False, compute_Q=True)
-                    eval_obs, eval_r, eval_done, eval_info = eval_env.step(max_action * eval_action)  # scale for execution in env (as far as DDPG is concerned, every action is in [-1, 1])
-                    if render_eval:
-                        eval_env.render()
-                    eval_episode_reward += eval_r
-                    eval_qs.append(eval_q)
-                eval_episode_rewards_history.append(eval_episode_reward)
+                for i in range(nb_eval_runs):
+                    eval_done = False
+                    eval_obs = eval_env.reset()
+                    while not eval_done:
+                        eval_action, eval_q = agent.pi(eval_obs, apply_noise=False, compute_Q=True)
+                        eval_obs, eval_r, eval_done, eval_info = eval_env.step(max_action * eval_action)  # scale for execution in env (as far as DDPG is concerned, every action is in [-1, 1])
+                        if render_eval:
+                            eval_env.render()
+                        eval_episode_reward += eval_r
+                        eval_qs.append(eval_q)
+                eval_episode_rewards_history.append(eval_episode_reward / nb_eval_runs)
 
             mpi_size = MPI.COMM_WORLD.Get_size()
             # Log stats.
@@ -150,7 +151,7 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
             combined_stats['rollout/actions_std'] = np.std(epoch_actions)
             # Evaluation statistics.
             if eval_env is not None:
-                combined_stats['eval/return'] = eval_episode_reward
+                combined_stats['eval/return'] = eval_episode_reward / nb_eval_runs
                 combined_stats['eval/return_history'] = np.mean(eval_episode_rewards_history)
                 combined_stats['eval/Q'] = np.mean(eval_qs)
                 combined_stats['eval/episodes'] = epoch + 1
