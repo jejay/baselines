@@ -22,16 +22,17 @@ class Model(object):
 class WeightSharingActor(Model):
     def __init__(self, specification, name='weight-sharing-actor', layer_norm=True):
         super(WeightSharingActor, self).__init__(name=name)
+        self.specification = specification
         self.specification = {
             'commander': {
-                'hidden_layers': 0,
+                'hidden_layers': 1,
                 'units': 64
             },
             'controllers': [
                 {
                     'name': 'leg',
-                    'hidden_layers': 1,
-                    'units': 64,
+                    'hidden_layers': 0,
+                    'units': 16,
                     'action_indice_groups': [[0, 1], [2, 3], [4, 5], [6, 7]]
                 },
                 #{
@@ -60,9 +61,11 @@ class WeightSharingActor(Model):
             assert i in self.indices, \
                 "Action index %r not found." % i
         self.nb_actions = max(self.indices) + 1
-    
-    def __call__(self, obs):
+
+    def __call__(self, obs, reuse=False):
         with tf.variable_scope(self.name) as scope:
+            if reuse:
+                scope.reuse_variables()
             x = obs
             for i in range(self.specification['commander']['hidden_layers']):
                 x = tf.layers.dense(x, self.specification['commander']['units'])
@@ -70,40 +73,45 @@ class WeightSharingActor(Model):
                     x = tc.layers.layer_norm(x, center=True, scale=True)
                 x = tf.nn.relu(x)
 
-            output = tf.zeros((None, self.nb_actions))
+                
+            output = tf.zeros(shape=[1, self.nb_actions])
 
             for controller in self.specification['controllers']:
-                for action_indice_group in controller['action_indice_groups']:
+                for aig_idx, action_indice_group in enumerate(controller['action_indice_groups']):
 
-                    # This layer splits the controllers. Weights can not be shared here.
-                    x_ = tf.layers.dense(x, controller['units'])
-                    if self.layer_norm:
-                        x_ = tc.layers.layer_norm(x_, center=True, scale=True)
-                    x_ = tf.nn.relu(x_)
-
-                    for i in range(controller['action_indice_groups']['hidden_layers']):
-
-                        # controllers hidden layer
-                        x_ = tf.layers.dense(x_, controller['units'],
-                            name=controller['name']+'hidden-layer-'+str(i),
-                            reuse=True)
+                    with tf.variable_scope(controller['name']+'-branch-'+str(aig_idx)):
+                        # This layer splits the controllers. Weights can not be shared here.
+                        x_ = tf.layers.dense(x, controller['units'])
                         if self.layer_norm:
                             x_ = tc.layers.layer_norm(x_, center=True, scale=True)
                         x_ = tf.nn.relu(x_)
 
-                    #controllers output layer
-                    x_ = tf.layers.dense(x_, controller['output_length'],
-                        kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3),
-                        name=controller['name']+'final-layer',
-                        reuse=True)
+                    with tf.variable_scope(controller['name']) as controller_scope:
+                        # Starting variable/weights sharing if we are in the second or higher action index group
+                        if aig_idx > 0:
+                            controller_scope.reuse_variables()
 
-                    output_projection = np.zeros((controller['output_length'], self.nb_actions))
-                    for controller_output_index, action_index in enumerate(action_indice_group):
-                        output_projection[controller_output_index, action_index] = 1/self.indices.count(action_index)
-                    output_projection = tf.convert_to_tensor(output_projection)
+                        for i in range(controller['hidden_layers']):
 
-                    x_ = tf.tensordot(x_, output_projection, axes = 1)
-                    output = tf.add(output, x_)
+                            # controllers hidden layer
+                            x_ = tf.layers.dense(x_, controller['units'],
+                                                 name='hidden-layer-'+str(i))
+                            if self.layer_norm:
+                                x_ = tc.layers.layer_norm(x_, center=True, scale=True)
+                            x_ = tf.nn.relu(x_)
+
+                        #controllers output layer
+                        x_ = tf.layers.dense(x_, controller['output_length'],
+                                             kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3),
+                                             name='final-layer')
+
+                        output_projection = np.zeros((controller['output_length'], self.nb_actions))
+                        for controller_output_index, action_index in enumerate(action_indice_group):
+                            output_projection[controller_output_index, action_index] = 1/self.indices.count(action_index)
+                        output_projection = tf.convert_to_tensor(output_projection, dtype=tf.float32)
+
+                        x_ = tf.tensordot(x_, output_projection, axes = 1)
+                        output = tf.add(output, x_)
 
             output = tf.nn.tanh(output)
         return output
@@ -120,12 +128,12 @@ class Actor(Model):
                 scope.reuse_variables()
 
             x = obs
-            x = tf.layers.dense(x, 64)
+            x = tf.layers.dense(x, 128)
             if self.layer_norm:
                 x = tc.layers.layer_norm(x, center=True, scale=True)
             x = tf.nn.relu(x)
             
-            x = tf.layers.dense(x, 64)
+            x = tf.layers.dense(x, 128)
             if self.layer_norm:
                 x = tc.layers.layer_norm(x, center=True, scale=True)
             x = tf.nn.relu(x)

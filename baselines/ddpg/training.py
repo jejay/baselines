@@ -37,6 +37,7 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
 
     step = 0
     episode = 0
+    eval_episode_reward = 0.
     eval_episode_rewards_history = deque(maxlen=100)
     episode_rewards_history = deque(maxlen=100)
     with U.single_threaded_session() as sess:
@@ -46,8 +47,6 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
 
         agent.reset()
         obs = env.reset()
-        if eval_env is not None:
-            eval_obs = eval_env.reset()
         done = False
         episode_reward = 0.
         episode_step = 0
@@ -59,9 +58,6 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
 
         epoch_episode_rewards = []
         epoch_episode_steps = []
-        epoch_episode_eval_rewards = []
-        epoch_episode_eval_steps = []
-        epoch_start_time = time.time()
         epoch_actions = []
         epoch_qs = []
         epoch_episodes = 0
@@ -118,24 +114,20 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
                     epoch_actor_losses.append(al)
                     agent.update_target_net()
 
-                # Evaluate.
-                eval_episode_rewards = []
-                eval_qs = []
-                if eval_env is not None:
-                    eval_episode_reward = 0.
-                    for t_rollout in range(nb_eval_steps):
-                        eval_action, eval_q = agent.pi(eval_obs, apply_noise=False, compute_Q=True)
-                        eval_obs, eval_r, eval_done, eval_info = eval_env.step(max_action * eval_action)  # scale for execution in env (as far as DDPG is concerned, every action is in [-1, 1])
-                        if render_eval:
-                            eval_env.render()
-                        eval_episode_reward += eval_r
-
-                        eval_qs.append(eval_q)
-                        if eval_done:
-                            eval_obs = eval_env.reset()
-                            eval_episode_rewards.append(eval_episode_reward)
-                            eval_episode_rewards_history.append(eval_episode_reward)
-                            eval_episode_reward = 0.
+            # Evaluate.
+            eval_episode_reward = 0.
+            eval_qs = []
+            if eval_env is not None:
+                eval_done = False
+                eval_obs = eval_env.reset()
+                while not eval_done:
+                    eval_action, eval_q = agent.pi(eval_obs, apply_noise=False, compute_Q=True)
+                    eval_obs, eval_r, eval_done, eval_info = eval_env.step(max_action * eval_action)  # scale for execution in env (as far as DDPG is concerned, every action is in [-1, 1])
+                    if render_eval:
+                        eval_env.render()
+                    eval_episode_reward += eval_r
+                    eval_qs.append(eval_q)
+                eval_episode_rewards_history.append(eval_episode_reward)
 
             mpi_size = MPI.COMM_WORLD.Get_size()
             # Log stats.
@@ -158,18 +150,21 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
             combined_stats['rollout/actions_std'] = np.std(epoch_actions)
             # Evaluation statistics.
             if eval_env is not None:
-                combined_stats['eval/return'] = eval_episode_rewards
+                combined_stats['eval/return'] = eval_episode_reward
                 combined_stats['eval/return_history'] = np.mean(eval_episode_rewards_history)
-                combined_stats['eval/Q'] = eval_qs
-                combined_stats['eval/episodes'] = len(eval_episode_rewards)
+                combined_stats['eval/Q'] = np.mean(eval_qs)
+                combined_stats['eval/episodes'] = epoch + 1
             def as_scalar(x):
                 if isinstance(x, np.ndarray):
                     assert x.size == 1
                     return x[0]
                 elif np.isscalar(x):
                     return x
+                elif len(x) > 0:
+                    return x[0]
                 else:
-                    raise ValueError('expected scalar, got %s'%x)
+                    return 0
+                    #raise ValueError('expected scalar, got %s'%x)
             combined_stats_sums = MPI.COMM_WORLD.allreduce(np.array([as_scalar(x) for x in combined_stats.values()]))
             combined_stats = {k : v / mpi_size for (k,v) in zip(combined_stats.keys(), combined_stats_sums)}
 

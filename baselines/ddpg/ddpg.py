@@ -169,8 +169,10 @@ class DDPG(object):
         logger.info('setting up actor optimizer')
         self.actor_loss = -tf.reduce_mean(self.critic_with_actor_tf)
         actor_shapes = [var.get_shape().as_list() for var in self.actor.trainable_vars]
+        actor_var_names = [var.name for var in self.actor.trainable_vars]
         actor_nb_params = sum([reduce(lambda x, y: x * y, shape) for shape in actor_shapes])
         logger.info('  actor shapes: {}'.format(actor_shapes))
+        logger.info('  actor names: {}'.format(actor_var_names))
         logger.info('  actor params: {}'.format(actor_nb_params))
         self.actor_grads = U.flatgrad(self.actor_loss, self.actor.trainable_vars, clip_norm=self.clip_norm)
         self.actor_optimizer = MpiAdam(var_list=self.actor.trainable_vars,
