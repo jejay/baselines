@@ -22,6 +22,8 @@ def run(env_id, seed, noise_type, layer_norm, evaluation, weight_sharing, **kwar
     rank = MPI.COMM_WORLD.Get_rank()
     if rank != 0:
         logger.set_level(logger.DISABLED)
+    else:
+        logger.configure()
 
     # Create envs.
     env = gym.make(env_id)
@@ -57,14 +59,14 @@ def run(env_id, seed, noise_type, layer_norm, evaluation, weight_sharing, **kwar
     # Configure components.
     memory = Memory(limit=int(1e6), action_shape=env.action_space.shape, observation_shape=env.observation_space.shape)
     critic = Critic(layer_norm=layer_norm)
-    if weight_sharing:
-        actor = WeightSharingActor(None, layer_norm=layer_norm)
+    if weight_sharing != 'none':
+        actor = WeightSharingActor(env_id + '-' + weight_sharing, layer_norm=layer_norm)
         logger.info("Weight sharing is enabled.")
     else:
         actor = Actor(nb_actions, layer_norm=layer_norm)
 
     # Seed everything to make things reproducible.
-    seed = seed + 1000000 * rank
+    seed = 72314 + 347 * seed + 1000000 * rank
     logger.info('rank {}: seed={}, logdir={}'.format(rank, seed, logger.get_dir()))
     tf.reset_default_graph()
     set_global_seeds(seed)
@@ -111,7 +113,7 @@ def parse_args():
     parser.add_argument('--noise-type', type=str, default='adaptive-param_0.2')  # choices are adaptive-param_xx, ou_xx, normal_xx, none
     parser.add_argument('--num-timesteps', type=int, default=None)
     boolean_flag(parser, 'evaluation', default=False)
-    boolean_flag(parser, 'weight-sharing', default=False)
+    parser.add_argument('--weight-sharing', type=str, choices=['none', 'shallow', 'deep'], default='none')
     args = parser.parse_args()
     # we don't directly specify timesteps for this script, so make sure that if we do specify them
     # they agree with the other parameters
@@ -124,7 +126,5 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        logger.configure()
     # Run actual script.
     run(**args)

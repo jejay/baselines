@@ -21,34 +21,149 @@ class Model(object):
 
 class WeightSharingActor(Model):
     def __init__(self, specification, name='weight-sharing-actor', layer_norm=True):
-        super(WeightSharingActor, self).__init__(name=name)
-        self.specification = specification
-        self.specification = {
-            'commander': {
-                'hidden_layers': 1,
-                'units': 64
-            },
-            'controllers': [
-                {
-                    'name': 'leg',
-                    'hidden_layers': 0,
-                    'units': 16,
-                    'action_indice_groups': [[0, 1], [2, 3], [4, 5], [6, 7]]
+        super(WeightSharingActor, self).__init__(name=name)       
+        
+        specifications = { 
+            'Ant-v2-shallow': {
+                'commander': {
+                    'hidden_layers': 1,
+                    'units': 128
                 },
-                #{
-                #    'name': 'weird',
-                #    'hidden_layers': 1,
-                #    'units': 64,
-                #    'action_indice_groups': [[1,2,3], [4,5,6]]
-                #},
-                #{
-                #    'name': 'awkward',
-                #    'hidden_layers': 1,
-                #    'units': 64,
-                #    'action_indice_groups': [[4]]
-                #},
-            ]
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 0,
+                        'units': 32,
+                        'action_indice_groups': [[0, 1], [2, 3], [4, 5], [6, 7]]
+                    }
+                ]
+            },
+            'Ant-v2-deep': {
+                'commander': {
+                    'hidden_layers': 0,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 1,
+                        'units': 32,
+                        'action_indice_groups': [[0, 1], [2, 3], [4, 5], [6, 7]]
+                    }
+                ]
+            }, 
+            'Walker2d-v2-shallow': {
+                'commander': {
+                    'hidden_layers': 1,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 0,
+                        'units': 64,
+                        'action_indice_groups': [[0, 1, 2], [3, 4, 5]]
+                    }
+                ]
+            }, 
+            'Walker2d-v2-deep': {
+                'commander': {
+                    'hidden_layers': 0,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 1,
+                        'units': 64,
+                        'action_indice_groups': [[0, 1, 2], [3, 4, 5]]
+                    }
+                ]
+            }, 
+            'HalfCheetah-v2-shallow': {
+                'commander': {
+                    'hidden_layers': 1,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 0,
+                        'units': 64,
+                        'action_indice_groups': [[0, 1, 2], [3, 4, 5]]
+                    }
+                ]
+            }, 
+            'HalfCheetah-v2-deep': {
+                'commander': {
+                    'hidden_layers': 0,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 1,
+                        'units': 64,
+                        'action_indice_groups': [[0, 1, 2], [3, 4, 5]]
+                    }
+                ]
+            },
+            'Humanoid-v2-shallow': {
+                'commander': {
+                    'hidden_layers': 1,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'abdomen',
+                        'hidden_layers': 0,
+                        'units': 16,
+                        'action_indice_groups': [[0, 1, 2]]
+                    },
+                    {
+                        'name': 'hip-knee',
+                        'hidden_layers': 0,
+                        'units': 32,
+                        'action_indice_groups': [[3, 4, 5, 6], [7, 8, 9, 10]]
+                    },
+                    {
+                        'name': 'arm',
+                        'hidden_layers': 0,
+                        'units': 24,
+                        'action_indice_groups': [[11, 12, 13], [14, 15, 16]]
+                    }
+                ]
+            }, 
+            'Humanoid-v2-deep': {
+                'commander': {
+                    'hidden_layers': 0,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'abdomen',
+                        'hidden_layers': 1,
+                        'units': 16,
+                        'action_indice_groups': [[0, 1, 2]]
+                    },
+                    {
+                        'name': 'hip-knee',
+                        'hidden_layers': 1,
+                        'units': 32,
+                        'action_indice_groups': [[3, 4, 5, 6], [7, 8, 9, 10]]
+                    },
+                    {
+                        'name': 'arm',
+                        'hidden_layers': 1,
+                        'units': 24,
+                        'action_indice_groups': [[11, 12, 13], [14, 15, 16]]
+                    }
+                ]
+            }
         }
+        
+        self.specification = specifications[specification]
+        
         self.layer_norm = layer_norm
         self.indices = []
         for controller in self.specification['controllers']:
