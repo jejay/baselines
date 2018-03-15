@@ -62,6 +62,7 @@ class Task(object):
             nb_epoch_cycles=self.nb_epoch_cycles,
             nb_train_steps=self.nb_train_steps,
             nb_rollout_steps=self.nb_rollout_steps,
+            nb_eval_runs=5,
             nb_eval_steps=0)
 
     def get_signature(self): 
@@ -132,12 +133,9 @@ class Task(object):
 
         Task.start(False)
 
-#for env_id in ENV_IDS:
-#    for weight_sharing in WEIGHT_SHARINGS:
-#        for seed in SEEDS:
-#            Task(env_id, 1e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
-
-Task("Ant-v2", 1e6, 50, 25, 'adaptive-param_0.2', 'none', 0)
-Task("Ant-v2", 1e6, 50, 25, 'adaptive-param_0.2', 'deep', 0)
+for seed in SEEDS:
+    for env_id in ENV_IDS:
+        for weight_sharing in WEIGHT_SHARINGS:
+            Task(env_id, 1e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
 
 Task.start(True)
