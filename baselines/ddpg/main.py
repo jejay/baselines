@@ -12,7 +12,7 @@ from baselines.ddpg.models import Actor, WeightSharingActor, Critic
 from baselines.ddpg.memory import Memory
 from baselines.ddpg.noise import *
 
-import roboschool
+#import roboschool
 import gym
 import tensorflow as tf
 from mpi4py import MPI
