@@ -9,7 +9,7 @@ HOSTNAME = socket.gethostname().split(".")[0]
 ENV_IDS = ['Ant-v2', 'Walker2d-v2', 'HalfCheetah-v2', 'Humanoid-v2']
 NOISE_TYPES = ['ou_0.2', 'adaptive-param_0.2']
 SEEDS = [0,1,2,3,4]
-WEIGHT_SHARINGS = ['none', 'shallow', 'deep']
+WEIGHT_SHARINGS = ['none', 'shallow', 'deep', 'balanced']
 
 class Task(object):
     tasks = []
@@ -136,5 +136,11 @@ for seed in SEEDS:
     for env_id in ENV_IDS:
         for weight_sharing in WEIGHT_SHARINGS:
             Task(env_id, 1e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
+            
+
+for seed in SEEDS:
+    Task(env_id, 1e6, 50, 25, 'adaptive-param_0.2', 'none', seed)
+    Task(env_id, 1e6, 50, 50, 'adaptive-param_0.2', 'none', seed)
+    Task(env_id, 1e6, 50, 100, 'adaptive-param_0.2', 'none', seed)
 
 Task.start(True)
