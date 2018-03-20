@@ -29,8 +29,8 @@ class Task(object):
         self.weight_sharing = weight_sharing
         self.seed = seed
 
-        self.nb_epoch_cycles = 1000 // nb_rollout_steps
-        self.nb_epochs = 1000000 // (self.nb_epoch_cycles * self.nb_rollout_steps)
+        self.nb_epoch_cycles = int(1000 // nb_rollout_steps)
+        self.nb_epochs = int(self.nb_timesteps // (self.nb_epoch_cycles * self.nb_rollout_steps))
         
         Task.tasks.append(self)
 
@@ -132,15 +132,37 @@ class Task(object):
 
         Task.start(False)
 
+### base experiments with 5 seeds
 for seed in SEEDS:
     for env_id in ENV_IDS:
         for weight_sharing in WEIGHT_SHARINGS:
             Task(env_id, 1e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
             
-
+### accidentally did this with Humanoid but wanted to do it with Halfcheetah, as done later
 for seed in SEEDS:
-    Task(env_id, 1e6, 50, 25, 'adaptive-param_0.2', 'none', seed)
-    Task(env_id, 1e6, 50, 50, 'adaptive-param_0.2', 'none', seed)
-    Task(env_id, 1e6, 50, 100, 'adaptive-param_0.2', 'none', seed)
+    Task('Humanoid-v2', 1e6, 50, 25, 'adaptive-param_0.2', 'none', seed)
+    Task('Humanoid-v2', 1e6, 50, 50, 'adaptive-param_0.2', 'none', seed)
+    Task('Humanoid-v2', 1e6, 50, 100, 'adaptive-param_0.2', 'none', seed)
+
+### 8M steps humanoid, 5 seeds
+for seed in SEEDS:
+    for weight_sharing in WEIGHT_SHARINGS:
+        Task('Humanoid-v2', 8e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
+
+### additional 5 seeds for base experiments except humanoid
+for seed in range(5,10):
+    for env_id in ENV_IDS:
+        if env_id == 'Humanoid-v2':
+            continue
+        for weight_sharing in WEIGHT_SHARINGS:
+            Task(env_id, 1e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
+
+### different noise type, train step sizes and networks
+for seed in SEEDS:
+    for weight_sharing in WEIGHT_SHARINGS:
+        for noise_type in NOISE_TYPES:
+            Task('HalfCheetah-v2', 1e6, 50, 25, noise_type, weight_sharing, seed)
+            Task('HalfCheetah-v2', 1e6, 50, 50, noise_type, weight_sharing, seed)
+            Task('HalfCheetah-v2', 1e6, 50, 100, noise_type, weight_sharing, seed)
 
 Task.start(True)
