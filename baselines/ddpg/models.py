@@ -66,6 +66,48 @@ class WeightSharingActor(Model):
                     }
                 ]
             },
+            'Ant-v2-balancedbottleneck': {
+                'commander': {
+                    'hidden_layers': 1,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 1,
+                        'units': 32,
+                        'action_indice_groups': [[0, 1], [2, 3], [4, 5], [6, 7]]
+                    }
+                ]
+            },
+            'Ant-v2-balancedbottlebottleneck': {
+                'commander': {
+                    'hidden_layers': 1,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 1,
+                        'units': 32,
+                        'action_indice_groups': [[0, 1], [2, 3], [4, 5], [6, 7]]
+                    }
+                ]
+            },
+            'Ant-v2-balancedbottlebottlebottleneck': {
+                'commander': {
+                    'hidden_layers': 1,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'leg',
+                        'hidden_layers': 1,
+                        'units': 32,
+                        'action_indice_groups': [[0, 1], [2, 3], [4, 5], [6, 7]]
+                    }
+                ]
+            },
             'Walker2d-v2-shallow': {
                 'commander': {
                     'hidden_layers': 1,
@@ -227,9 +269,38 @@ class WeightSharingActor(Model):
                         'action_indice_groups': [[11, 12, 13], [14, 15, 16]]
                     }
                 ]
+            }, 
+            'Humanoid-v2-halfmirrored': {
+                'commander': {
+                    'hidden_layers': 1,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'body-half',
+                        'hidden_layers': 0,
+                        'units': 64,
+                        'action_indice_groups': [[0, 1, 2, 3, 4, 5, 6, 11, 12, 13], [0, 1, 2, 7, 8, 9, 10, 14, 15, 16]]
+                    }
+                ]
+            }, 
+            'Humanoid-v2-fullmirrored': {
+                'commander': {
+                    'hidden_layers': 0,
+                    'units': 128
+                },
+                'controllers': [
+                    {
+                        'name': 'body-half',
+                        'hidden_layers': 1,
+                        'units': 64,
+                        'action_indice_groups': [[0, 1, 2, 3, 4, 5, 6, 11, 12, 13], [0, 1, 2, 7, 8, 9, 10, 14, 15, 16]]
+                    }
+                ]
             }
         }
         
+        self.spec_name = specification
         self.specification = specifications[specification]
         
         self.layer_norm = layer_norm
@@ -260,11 +331,20 @@ class WeightSharingActor(Model):
             output = tf.zeros(shape=[1, self.nb_actions])
 
             for controller in self.specification['controllers']:
+                
+                branch_units = controller['units']
+                if self.spec_name == 'Ant-v2-balancedbottlebottlebottleneck':
+                    branch_units = 2
+                if self.spec_name == 'Ant-v2-balancedbottlebottleneck':
+                    branch_units = 4
+                if self.spec_name == 'Ant-v2-balancedbottleneck':
+                    branch_units = 8
+                
                 for aig_idx, action_indice_group in enumerate(controller['action_indice_groups']):
-
+                    
                     with tf.variable_scope(controller['name']+'-branch-'+str(aig_idx)):
                         # This layer splits the controllers. Weights can not be shared here.
-                        x_ = tf.layers.dense(x, controller['units'])
+                        x_ = tf.layers.dense(x, branch_units)
                         if self.layer_norm:
                             x_ = tc.layers.layer_norm(x_, center=True, scale=True)
                         x_ = tf.nn.relu(x_)

@@ -113,7 +113,7 @@ def parse_args():
     parser.add_argument('--noise-type', type=str, default='adaptive-param_0.2')  # choices are adaptive-param_xx, ou_xx, normal_xx, none
     parser.add_argument('--num-timesteps', type=int, default=None)
     boolean_flag(parser, 'evaluation', default=False)
-    parser.add_argument('--weight-sharing', type=str, choices=['none', 'shallow', 'deep', 'balanced'], default='none')
+    parser.add_argument('--weight-sharing', type=str, choices=['none', 'shallow', 'deep', 'balanced', 'balancedbottleneck', 'balancedbottlebottleneck', 'balancedbottlebottlebottleneck'], default='none')
     args = parser.parse_args()
     # we don't directly specify timesteps for this script, so make sure that if we do specify them
     # they agree with the other parameters

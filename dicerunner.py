@@ -165,4 +165,18 @@ for seed in SEEDS:
             Task('HalfCheetah-v2', 1e6, 50, 50, noise_type, weight_sharing, seed)
             Task('HalfCheetah-v2', 1e6, 50, 100, noise_type, weight_sharing, seed)
 
+### Bottleneck experiments
+for seed in range(0,10):
+    for weight_sharing in ['balancedbottleneck', 'balancedbottlebottleneck', 'balancedbottlebottlebottleneck']:
+        Task('Ant-v2', 1e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
+
+### 3M steps humanoid, 6 seeds
+for seed in range(5,11):
+    for weight_sharing in WEIGHT_SHARINGS:
+        Task('Humanoid-v2', 3e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
+        
+
+for seed in range(0,10):
+    for weight_sharing in ['halfmirrored', 'fullmirrored']:
+        Task('Humanoid-v2', 3e6, 50, 25, 'adaptive-param_0.2', weight_sharing, seed)
 Task.start(True)
